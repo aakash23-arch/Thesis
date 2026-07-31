@@ -1,0 +1,328 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============ Enums ============
+
+enum HealthStatus {
+  HEALTHY
+  CAUTION
+  BROKEN
+}
+
+enum AssetType {
+  STOCK
+  ETF
+  MUTUAL_FUND
+}
+
+enum ThesisTier {
+  TIER_0
+  TIER_1
+  TIER_2
+}
+
+enum ConvictionLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ThesisStatus {
+  ACTIVE
+  UNDER_REVIEW
+  EXITED
+}
+
+enum RuleType {
+  THESIS_BASED
+  VALUATION_BASED
+  RISK_BASED
+  PORTFOLIO_LEVEL
+}
+
+enum DecisionType {
+  HOLD
+  PARTIAL_EXIT
+  FULL_EXIT
+  OVERRIDE_RULE
+}
+
+enum AlertType {
+  RULE_TRIGGERED
+  ASSUMPTION_BREACH
+  NEWS
+  PRICE_MOVE
+}
+
+// ============ Users ============
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatarUrl String?  @map("avatar_url")
+  plan      String   @default("free")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  positions          Position[]
+  theses             Thesis[]
+  exitRules          ExitRule[]
+  decisions          Decision[]
+  mfHoldings         MfHolding[]
+  portfolioSnapshots PortfolioSnapshot[]
+  dqsScores          DqsScore[]
+  alerts             Alert[]
+
+  @@map("users")
+}
+
+// ============ Positions & Portfolio ============
+
+model Position {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  ticker       String
+  exchange     String
+  assetType    AssetType @map("asset_type")
+  quantity     Decimal   @db.Decimal(18, 4)
+  avgBuyPrice  Decimal   @map("avg_buy_price") @db.Decimal(18, 4)
+  buyDate      DateTime  @map("buy_date")
+  currentPrice Decimal?  @map("current_price") @db.Decimal(18, 4)
+  sector       String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theses    Thesis[]
+  exitRules ExitRule[]
+  decisions Decision[]
+  alerts    Alert[]
+
+  @@index([userId])
+  @@index([ticker])
+  @@map("positions")
+}
+
+model PortfolioSnapshot {
+  id                  String   @id @default(cuid())
+  userId              String   @map("user_id")
+  snapshotDate        DateTime @map("snapshot_date")
+  totalValue          Decimal  @map("total_value") @db.Decimal(18, 4)
+  sectorExposureJson  Json?    @map("sector_exposure_json")
+  companyExposureJson Json?    @map("company_exposure_json")
+  factorExposureJson  Json?    @map("factor_exposure_json")
+  overlapScore        Int?     @map("overlap_score")
+  dqsScore            Int?     @map("dqs_score")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("portfolio_snapshots")
+}
+
+// ============ Theses & Assumptions ============
+
+model Thesis {
+  id                  String          @id @default(cuid())
+  positionId          String          @map("position_id")
+  userId              String          @map("user_id")
+  tier                ThesisTier
+  thesisText          String          @map("thesis_text") @db.Text
+  thesisTemplateId    String?         @map("thesis_template_id")
+  convictionLevel     ConvictionLevel @map("conviction_level")
+  timeHorizonMonths   Int             @map("time_horizon_months")
+  healthScore         Int?            @map("health_score")
+  previousHealthScore Int?            @map("previous_health_score")
+  status              ThesisStatus    @default(ACTIVE)
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+
+  position    Position     @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assumptions Assumption[]
+
+  @@index([userId])
+  @@index([positionId])
+  @@map("theses")
+}
+
+model Assumption {
+  id             String       @id @default(cuid())
+  thesisId       String       @map("thesis_id")
+  text           String       @db.Text
+  metricKey      String       @map("metric_key")
+  operator       String
+  thresholdValue Decimal      @map("threshold_value") @db.Decimal(18, 4)
+  currentValue   Decimal?     @map("current_value") @db.Decimal(18, 4)
+  status         HealthStatus @default(HEALTHY)
+  lastCheckedAt  DateTime?    @map("last_checked_at")
+
+  thesis Thesis @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+
+  @@index([thesisId])
+  @@map("assumptions")
+}
+
+// ============ Exit Rules & Decisions ============
+
+model ExitRule {
+  id               String       @id @default(cuid())
+  positionId       String       @map("position_id")
+  userId           String       @map("user_id")
+  ruleTextVerbatim String       @map("rule_text_verbatim") @db.Text
+  ruleType         RuleType     @map("rule_type")
+  metricKey        String       @map("metric_key")
+  operator         String
+  thresholdValue   Decimal      @map("threshold_value") @db.Decimal(18, 4)
+  currentValue     Decimal?     @map("current_value") @db.Decimal(18, 4)
+  status           HealthStatus @default(HEALTHY)
+  createdDateText  String       @map("created_date_text")
+  triggeredAt      DateTime?    @map("triggered_at")
+
+  position  Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  decisions Decision[]
+
+  @@index([userId])
+  @@index([positionId])
+  @@map("exit_rules")
+}
+
+model Decision {
+  id                    String       @id @default(cuid())
+  userId                String       @map("user_id")
+  positionId            String       @map("position_id")
+  exitRuleId            String?      @map("exit_rule_id")
+  decisionType          DecisionType @map("decision_type")
+  reasoningText         String?      @map("reasoning_text") @db.Text
+  positionPnlAtDecision Decimal?     @map("position_pnl_at_decision") @db.Decimal(18, 4)
+  outcomePnl30d         Decimal?     @map("outcome_pnl_30d") @db.Decimal(18, 4)
+  outcomePnl90d         Decimal?     @map("outcome_pnl_90d") @db.Decimal(18, 4)
+  createdAt             DateTime     @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position Position  @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  exitRule ExitRule? @relation(fields: [exitRuleId], references: [id])
+
+  @@index([userId])
+  @@index([positionId])
+  @@map("decisions")
+}
+
+// ============ Mutual Funds ============
+
+model MfHolding {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  schemeCode   String   @map("scheme_code")
+  schemeName   String   @map("scheme_name")
+  units        Decimal  @db.Decimal(18, 4)
+  nav          Decimal  @db.Decimal(18, 4)
+  currentValue Decimal  @map("current_value") @db.Decimal(18, 4)
+  amc          String
+  category     String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mf_holdings")
+}
+
+model MfStockExposure {
+  id                String   @id @default(cuid())
+  schemeCode        String   @map("scheme_code")
+  ticker            String
+  companyName       String   @map("company_name")
+  percentageOfAum   Decimal  @map("percentage_of_aum") @db.Decimal(9, 4)
+  reportingMonth    DateTime @map("reporting_month")
+
+  @@unique([schemeCode, ticker, reportingMonth])
+  @@index([ticker])
+  @@map("mf_stock_exposures")
+}
+
+// ============ IPO Research ============
+
+model IpoReport {
+  id                 String   @id @default(cuid())
+  companyName        String   @map("company_name")
+  ticker             String?
+  issueOpen          DateTime @map("issue_open")
+  issueClose         DateTime @map("issue_close")
+  priceBandLow       Decimal  @map("price_band_low") @db.Decimal(18, 4)
+  priceBandHigh      Decimal  @map("price_band_high") @db.Decimal(18, 4)
+  issueSize          Decimal  @map("issue_size") @db.Decimal(18, 4)
+  freshIssuePct      Decimal  @map("fresh_issue_pct") @db.Decimal(6, 2)
+  ofsPct             Decimal  @map("ofs_pct") @db.Decimal(6, 2)
+  businessSummary    String   @map("business_summary") @db.Text
+  peerComparisonJson Json?    @map("peer_comparison_json")
+  financialsJson     Json?    @map("financials_json")
+  forensicScore      Int?     @map("forensic_score")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@map("ipo_reports")
+}
+
+// ============ Scoring & Alerts ============
+
+model DqsScore {
+  id                    String   @id @default(cuid())
+  userId                String   @map("user_id")
+  scoreDate             DateTime @map("score_date")
+  overallScore          Int      @map("overall_score")
+  thesisRigor           Int      @map("thesis_rigor")
+  portfolioConstruction Int      @map("portfolio_construction")
+  exitDiscipline        Int      @map("exit_discipline")
+  learningAdaptation    Int      @map("learning_adaptation")
+  track                 String
+  benchmarkPercentile   Int?     @map("benchmark_percentile")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("dqs_scores")
+}
+
+model Alert {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  positionId      String?   @map("position_id")
+  alertType       AlertType @map("alert_type")
+  ruleTextEcho    String?   @map("rule_text_echo") @db.Text
+  statusText      String    @map("status_text")
+  confidenceLevel String?   @map("confidence_level")
+  sourceUrl       String?   @map("source_url")
+  acknowledged    Boolean   @default(false)
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position Position? @relation(fields: [positionId], references: [id])
+
+  @@index([userId])
+  @@map("alerts")
+}
+
+// ============ Data Quality ============
+
+model DataAccuracyLog {
+  id                String   @id @default(cuid())
+  dataType          String   @map("data_type")
+  ticker            String?
+  expectedValue     String?  @map("expected_value")
+  parsedValue       String?  @map("parsed_value")
+  isCorrect         Boolean  @map("is_correct")
+  correctionApplied Boolean  @default(false) @map("correction_applied")
+  reportedBy        String?  @map("reported_by")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([ticker])
+  @@map("data_accuracy_log")
+}
