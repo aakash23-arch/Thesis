@@ -1,5 +1,9 @@
+'use client';
+
+import * as React from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { getHealthColor } from '@/lib/health-score';
+import { getHealthColor, getHealthLabel } from '@/lib/health-score';
 
 export interface ThesisGaugeProps {
   /** Current thesis health score, 0-100. */
@@ -8,83 +12,151 @@ export interface ThesisGaugeProps {
   previousScore?: number;
   /** 'full' is the hero gauge (24 x 180). 'mini' is the inline/table variant (12 x 64). */
   size?: 'full' | 'mini';
+  /**
+   * Vertical is the signature instrument. Horizontal is the mobile variant --
+   * same proportions rotated, so the gauge survives a narrow column.
+   */
+  orientation?: 'vertical' | 'horizontal';
   /** Whether to render the Instrument Serif score number beside the gauge. Defaults to true for 'full', false for 'mini'. */
   showScoreLabel?: boolean;
+  /** Optional caption under the score, e.g. "Thesis health". Only renders alongside the score label. */
+  label?: string;
   className?: string;
 }
 
 const DIMENSIONS = {
-  full: { width: 24, height: 180 },
-  mini: { width: 12, height: 64 },
+  full: { thickness: 24, length: 180 },
+  mini: { thickness: 12, length: 64 },
 } as const;
+
+/** Horizontal padding around the barrel so the previous-reading tick can overhang it. */
+const TICK_OVERHANG = 3;
+
+const clamp = (n: number) => Math.max(0, Math.min(100, n));
 
 export function ThesisGauge({
   score,
   previousScore,
   size = 'full',
+  orientation = 'vertical',
   showScoreLabel,
+  label,
   className,
 }: ThesisGaugeProps) {
-  const { width, height } = DIMENSIONS[size];
-  const clamped = Math.max(0, Math.min(100, score));
-  const fillHeight = (clamped / 100) * height;
-  const fillY = height - fillHeight;
+  const clipId = React.useId();
+  const titleId = React.useId();
+  const reduceMotion = useReducedMotion();
+
+  const { thickness, length } = DIMENSIONS[size];
+  const clamped = clamp(score);
   const fillColor = getHealthColor(clamped);
-  const rx = width / 2;
+  const statusLabel = getHealthLabel(clamped);
+  const isVertical = orientation === 'vertical';
 
-  const label = showScoreLabel ?? size === 'full';
+  // The barrel occupies `thickness x length` (or the transpose). The viewBox is
+  // padded on the cross axis so the tick's overhang renders instead of clipping.
+  const barrelW = isVertical ? thickness : length;
+  const barrelH = isVertical ? length : thickness;
+  const padX = isVertical ? TICK_OVERHANG : 0;
+  const padY = isVertical ? 0 : TICK_OVERHANG;
+  const svgW = barrelW + padX * 2;
+  const svgH = barrelH + padY * 2;
+  const radius = thickness / 2;
 
-  const tickY =
-    previousScore !== undefined
-      ? height - (Math.max(0, Math.min(100, previousScore)) / 100) * height
-      : undefined;
+  const showLabel = showScoreLabel ?? size === 'full';
+
+  const fillLength = (clamped / 100) * length;
+  // Vertical fills bottom-up; horizontal fills left-to-right.
+  const fillRect = isVertical
+    ? { x: padX, y: padY + (length - fillLength), width: thickness, height: fillLength }
+    : { x: padX, y: padY, width: fillLength, height: thickness };
+
+  const tick =
+    previousScore === undefined
+      ? undefined
+      : (() => {
+          const offset = (clamp(previousScore) / 100) * length;
+          return isVertical
+            ? {
+                x1: 0,
+                x2: svgW,
+                y1: padY + (length - offset),
+                y2: padY + (length - offset),
+              }
+            : { x1: padX + offset, x2: padX + offset, y1: 0, y2: svgH };
+        })();
+
+  const description =
+    previousScore === undefined
+      ? `${statusLabel}. Thesis health score ${clamped} out of 100.`
+      : `${statusLabel}. Thesis health score ${clamped} out of 100, ${
+          clamped > previousScore
+            ? 'up from'
+            : clamped < previousScore
+              ? 'down from'
+              : 'unchanged from'
+        } ${clamp(previousScore)}.`;
 
   return (
-    <div className={cn('inline-flex items-center gap-4', className)}>
+    <div
+      className={cn(
+        'inline-flex gap-4',
+        isVertical ? 'items-center' : 'flex-col items-start',
+        className,
+      )}
+    >
       <svg
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-label={`Thesis health score: ${clamped} out of 100`}
+        width={svgW}
+        height={svgH}
+        viewBox={`0 0 ${svgW} ${svgH}`}
+        role="meter"
+        aria-valuenow={clamped}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuetext={description}
+        aria-labelledby={titleId}
+        className="shrink-0 overflow-visible"
       >
-        {/* Track */}
+        <title id={titleId}>{description}</title>
+
+        {/* Barrel */}
         <rect
-          x={0.5}
-          y={0.5}
-          width={width - 1}
-          height={height - 1}
-          rx={rx}
+          x={padX + 0.5}
+          y={padY + 0.5}
+          width={barrelW - 1}
+          height={barrelH - 1}
+          rx={radius}
           fill="#F1F3F5"
           stroke="#E2E5E9"
           strokeWidth={1}
         />
-        {/* Fill, clipped to the track's rounded shape */}
-        <clipPath id={`thesis-gauge-clip-${size}`}>
-          <rect x={0} y={0} width={width} height={height} rx={rx} />
+
+        {/* Fill, clipped to the barrel's rounded shape */}
+        <clipPath id={clipId}>
+          <rect x={padX} y={padY} width={barrelW} height={barrelH} rx={radius} />
         </clipPath>
-        <rect
-          x={0}
-          y={fillY}
-          width={width}
-          height={fillHeight}
+        <motion.rect
+          clipPath={`url(#${clipId})`}
           fill={fillColor}
-          clipPath={`url(#thesis-gauge-clip-${size})`}
+          initial={false}
+          animate={fillRect}
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
         />
-        {/* Previous-reading tick mark */}
-        {tickY !== undefined && (
-          <line
-            x1={-2}
-            x2={width + 2}
-            y1={tickY}
-            y2={tickY}
-            stroke="#5C6670"
-            strokeWidth={2}
-          />
-        )}
+
+        {/* Previous-reading tick -- overhangs the barrel on both sides, like an
+            etched graduation mark on a physical instrument. */}
+        {tick && <line {...tick} stroke="#5C6670" strokeWidth={2} />}
       </svg>
-      {label && (
-        <span className="font-serif text-hero leading-none text-ink-primary">{clamped}</span>
+
+      {showLabel && (
+        <div className="flex flex-col">
+          <span className="font-serif text-hero leading-none text-ink-primary">{clamped}</span>
+          {label && (
+            <span className="mt-2 text-caption uppercase tracking-[0.04em] text-ink-secondary">
+              {label}
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

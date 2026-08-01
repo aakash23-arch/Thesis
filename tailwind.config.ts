@@ -3,6 +3,12 @@ import type { Config } from 'tailwindcss';
 export default {
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
+    // Design principle 4: "Borders, not shadows." Overriding (not extending) the
+    // shadow scale makes `shadow-*` unavailable outside of `shadow-none`, so the
+    // rule is enforced by the config rather than by discipline.
+    boxShadow: {
+      none: 'none',
+    },
     extend: {
       colors: {
         page: '#FAFBFC',
@@ -18,11 +24,23 @@ export default {
           hover: '#145A3D',
           light: '#E8F5EE',
         },
+        // Signal colours are the spec palette, used for FILLS -- gauge bands, chart
+        // series, status dots. The `*-ink` twins are the same signal darkened only
+        // as far as WCAG AA needs for text on light surfaces; `*-light` are the
+        // tinted backgrounds those inks sit on.
         signal: {
           healthy: '#1A6B4A',
+          'healthy-ink': '#1A6B4A', // 6.47:1 on white -- passes as-is
+          'healthy-light': '#E8F5EE',
           caution: '#C8922A',
+          'caution-ink': '#8A6318', // #C8922A is 2.76:1 -- this is 5.41:1
+          'caution-light': '#FAF2E1',
           broken: '#B83A2E',
+          'broken-ink': '#B83A2E', // 5.70:1 on white -- passes as-is
+          'broken-light': '#FBEBE9',
           neutral: '#4A7FBF',
+          'neutral-ink': '#2F6099', // #4A7FBF is 4.13:1 -- this is 6.45:1
+          'neutral-light': '#EAF1F9',
         },
         border: {
           DEFAULT: '#E2E5E9',
@@ -49,6 +67,19 @@ export default {
       },
       borderRadius: {
         card: '0.5rem',
+        pill: '1.5rem',
+      },
+      transitionDuration: {
+        instrument: '150ms',
+      },
+      transitionTimingFunction: {
+        instrument: 'cubic-bezier(0.4, 0, 0.2, 1)',
+      },
+      keyframes: {
+        'gauge-rise': {
+          from: { transform: 'scaleY(0)' },
+          to: { transform: 'scaleY(1)' },
+        },
       },
     },
   },

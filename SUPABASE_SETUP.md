@@ -6,9 +6,9 @@ Postgres reached through Prisma -- not Supabase Auth (auth is NextAuth.js, wired
 1. Create a Supabase project at https://supabase.com. Pick the region closest to India (e.g.
    `ap-southeast-1`). Store the database password securely.
 2. **Project Settings -> Database -> Connection string**:
-   - Copy the *Connection pooling* URI (port 6543, transaction mode) into `DATABASE_URL`,
+   - Copy the _Connection pooling_ URI (port 6543, transaction mode) into `DATABASE_URL`,
      and append `?pgbouncer=true&connection_limit=1`.
-   - Copy the *Direct connection* URI (port 5432) into `DIRECT_URL`.
+   - Copy the _Direct connection_ URI (port 5432) into `DIRECT_URL`.
 3. **Project Settings -> API**:
    - `Project URL` -> `NEXT_PUBLIC_SUPABASE_URL`
    - `anon public` key -> `NEXT_PUBLIC_SUPABASE_ANON_KEY`

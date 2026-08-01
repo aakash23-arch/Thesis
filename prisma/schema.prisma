@@ -237,12 +237,12 @@ model MfHolding {
 }
 
 model MfStockExposure {
-  id                String   @id @default(cuid())
-  schemeCode        String   @map("scheme_code")
-  ticker            String
-  companyName       String   @map("company_name")
-  percentageOfAum   Decimal  @map("percentage_of_aum") @db.Decimal(9, 4)
-  reportingMonth    DateTime @map("reporting_month")
+  id              String   @id @default(cuid())
+  schemeCode      String   @map("scheme_code")
+  ticker          String
+  companyName     String   @map("company_name")
+  percentageOfAum Decimal  @map("percentage_of_aum") @db.Decimal(9, 4)
+  reportingMonth  DateTime @map("reporting_month")
 
   @@unique([schemeCode, ticker, reportingMonth])
   @@index([ticker])

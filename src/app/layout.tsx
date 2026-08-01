@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Instrument_Serif, Inter, IBM_Plex_Mono } from 'next/font/google';
 import { Toaster } from '@/components/ui/toast';
 import '@/styles/globals.css';
@@ -25,13 +25,28 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Thesis',
+  title: {
+    default: 'Thesis',
+    template: '%s · Thesis',
+  },
   description: 'An instrument of intellectual discipline applied to money.',
+  applicationName: 'Thesis',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  // Matches the sidebar -- the one dark surface in the product.
+  themeColor: '#0F1419',
+  colorScheme: 'light',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${instrumentSerif.variable} ${inter.variable} ${ibmPlexMono.variable}`}>
+    <html
+      lang="en"
+      className={`${instrumentSerif.variable} ${inter.variable} ${ibmPlexMono.variable}`}
+    >
       <body>
         {children}
         <Toaster />

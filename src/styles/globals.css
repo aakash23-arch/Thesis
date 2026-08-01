@@ -14,19 +14,35 @@
   body {
     @apply bg-page font-sans text-body text-ink-primary antialiased;
     font-family: var(--font-inter), sans-serif;
+    /* cv05: single-storey l with tail, ss01: open digits -- both help numerals and
+       tickers read unambiguously at caption sizes. */
+    font-feature-settings:
+      'cv05' 1,
+      'ss01' 1;
+    text-rendering: optimizeLegibility;
   }
 
-  h1,
-  h2,
-  h3 {
-    font-family: var(--font-instrument-serif), serif;
-  }
+  /* Headings inherit the body face by default. Instrument Serif is applied
+     deliberately via `font-serif` at display sites only (page titles, the gauge
+     score, thesis text) -- a blanket h1-h3 rule would override the type scale's
+     "Section head = Inter 600" and force synthetic bold, since the display face
+     ships weight 400 only. */
 
   code,
   kbd,
   samp,
   pre {
     font-family: var(--font-ibm-plex-mono), monospace;
+  }
+
+  /* Money and metrics must align in columns -- tabular figures everywhere the
+     data face is used. */
+  .font-mono {
+    font-feature-settings: 'tnum' 1;
+  }
+
+  ::selection {
+    @apply bg-accent-light text-ink-primary;
   }
 }
 
@@ -37,5 +53,28 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  /* One definition of focus for the whole product. `focus-ring` for light
+     surfaces, `focus-ring-dark` for the sidebar -- the single dark surface. */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface;
+  }
+
+  .focus-ring-dark {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-primary;
+  }
+}
+
+/* Design principle: animations sparingly -- and never against the user's stated
+   preference. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -1,0 +1,11 @@
+# Generated
+.next/
+out/
+build/
+node_modules/
+next-env.d.ts
+*.tsbuildinfo
+package-lock.json
+
+# Prisma owns its own formatter (`npx prisma format`)
+prisma/schema.prisma
