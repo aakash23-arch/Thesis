@@ -61,17 +61,47 @@ enum AlertType {
   PRICE_MOVE
 }
 
+// Onboarding answers. Both are nullable on User -- they are questions asked once,
+// not required attributes.
+enum InvestsIn {
+  STOCKS
+  MUTUAL_FUNDS
+  BOTH
+}
+
+enum TracksWith {
+  SPREADSHEET
+  BROKER_APP
+  NOTHING
+  OTHER
+}
+
 // ============ Users ============
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  avatarUrl String?  @map("avatar_url")
-  plan      String   @default("free")
+  id String @id @default(cuid())
+
+  // `email`, `emailVerified`, `name` and `image` are named by the Auth.js
+  // adapter contract -- it writes to these fields by name. `image` keeps the
+  // original `avatar_url` column; only the Prisma field name changed.
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  name          String?
+  image         String?   @map("avatar_url")
+
+  plan String @default("free")
+
+  // Onboarding. `onboardedAt` being non-null is the single source of truth for
+  // "this person finished onboarding" -- no separate boolean to fall out of sync.
+  investsIn   InvestsIn?  @map("invests_in")
+  tracksWith  TracksWith? @map("tracks_with")
+  onboardedAt DateTime?   @map("onboarded_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  accounts           Account[]
+  sessions           Session[]
   positions          Position[]
   theses             Thesis[]
   exitRules          ExitRule[]
@@ -82,6 +112,57 @@ model User {
   alerts             Alert[]
 
   @@map("users")
+}
+
+// ============ Auth.js ============
+// Shapes are dictated by @next-auth/prisma-adapter -- field names cannot be
+// changed, only their column mappings.
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+// Sessions are JWT-backed, so this table stays empty in normal operation. It
+// exists because the adapter contract requires it, and so switching to database
+// sessions later needs no migration.
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// Unused until Session 5 adds email magic links; included now to avoid a second
+// migration then.
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }
 
 // ============ Positions & Portfolio ============
