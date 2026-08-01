@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Instrument_Serif, Inter, IBM_Plex_Mono } from 'next/font/google';
+import { AuthSessionProvider } from '@/components/providers/session-provider';
 import { Toaster } from '@/components/ui/toast';
 import '@/styles/globals.css';
 
@@ -48,7 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${instrumentSerif.variable} ${inter.variable} ${ibmPlexMono.variable}`}
     >
       <body>
-        {children}
+        <AuthSessionProvider>{children}</AuthSessionProvider>
         <Toaster />
       </body>
     </html>
