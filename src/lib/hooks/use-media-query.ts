@@ -3,23 +3,26 @@
 import * as React from 'react';
 
 /**
- * SSR-safe media query. Returns false on the server and on the first client
- * render, then updates after mount -- so the markup the server produced and the
- * markup React first renders always agree.
+ * SSR-safe media query, built on useSyncExternalStore -- the primitive React
+ * provides for exactly this shape of problem. React reads `getServerSnapshot`
+ * during SSR and hydration, then switches to the live value, so the server's
+ * markup and React's first client render always agree without a setState in an
+ * effect (which would cascade renders under concurrent rendering).
  */
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = React.useState(false);
+  const subscribe = React.useCallback(
+    (onChange: () => void) => {
+      const list = window.matchMedia(query);
+      list.addEventListener('change', onChange);
+      return () => list.removeEventListener('change', onChange);
+    },
+    [query],
+  );
 
-  React.useEffect(() => {
-    const list = window.matchMedia(query);
-    setMatches(list.matches);
+  const getSnapshot = React.useCallback(() => window.matchMedia(query).matches, [query]);
+  const getServerSnapshot = React.useCallback(() => false, []);
 
-    const onChange = (event: MediaQueryListEvent) => setMatches(event.matches);
-    list.addEventListener('change', onChange);
-    return () => list.removeEventListener('change', onChange);
-  }, [query]);
-
-  return matches;
+  return React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
 // Breakpoints per the design spec: desktop >=1024, tablet 768-1023, mobile <768.

@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { getHealthColor, getHealthLabel } from '@/lib/health-score';
 
@@ -45,7 +44,6 @@ export function ThesisGauge({
 }: ThesisGaugeProps) {
   const clipId = React.useId();
   const titleId = React.useId();
-  const reduceMotion = useReducedMotion();
 
   const { thickness, length } = DIMENSIONS[size];
   const clamped = clamp(score);
@@ -65,11 +63,11 @@ export function ThesisGauge({
 
   const showLabel = showScoreLabel ?? size === 'full';
 
-  const fillLength = (clamped / 100) * length;
-  // Vertical fills bottom-up; horizontal fills left-to-right.
-  const fillRect = isVertical
-    ? { x: padX, y: padY + (length - fillLength), width: thickness, height: fillLength }
-    : { x: padX, y: padY, width: fillLength, height: thickness };
+  // The fill is drawn at full size and scaled down, rather than animating the
+  // rect's y/height. Scaling is a pure CSS transform -- it animates smoothly,
+  // needs no animation library, and cannot be misread as a translate the way an
+  // SVG `y` attribute can.
+  const fraction = clamped / 100;
 
   const tick =
     previousScore === undefined
@@ -135,12 +133,20 @@ export function ThesisGauge({
         <clipPath id={clipId}>
           <rect x={padX} y={padY} width={barrelW} height={barrelH} rx={radius} />
         </clipPath>
-        <motion.rect
+        <rect
+          x={padX}
+          y={padY}
+          width={barrelW}
+          height={barrelH}
           clipPath={`url(#${clipId})`}
           fill={fillColor}
-          initial={false}
-          animate={fillRect}
-          transition={reduceMotion ? { duration: 0 } : { duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+          style={{
+            transformBox: 'fill-box',
+            // Vertical fills bottom-up; horizontal fills left-to-right.
+            transformOrigin: isVertical ? 'bottom' : 'left',
+            transform: isVertical ? `scaleY(${fraction})` : `scaleX(${fraction})`,
+            transition: 'transform 450ms cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
         />
 
         {/* Previous-reading tick -- overhangs the barrel on both sides, like an

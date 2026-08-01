@@ -21,7 +21,7 @@ function useFieldContext(component: string) {
   return ctx;
 }
 
-export interface FieldProps extends React.HTMLAttributes<HTMLDivElement> {}
+export type FieldProps = React.HTMLAttributes<HTMLDivElement>;
 
 /**
  * Groups a label, control, hint and error, and wires the aria plumbing between

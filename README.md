@@ -8,8 +8,12 @@ rules back to you.
 
 ## Stack
 
-Next.js 14 (App Router) · TypeScript (strict) · Tailwind CSS · Prisma + PostgreSQL (Supabase) ·
-Zustand · React Hook Form + Zod · Radix UI · Recharts · Framer Motion
+Next.js 16 (App Router, Turbopack) · React 19 · TypeScript (strict) · Tailwind CSS ·
+Prisma + PostgreSQL (Supabase) · Zustand · React Hook Form + Zod · Radix UI · Recharts
+
+The build plan specifies "Next.js 14+". We run 16 because every 14.x release carries
+unpatched high-severity advisories (SSRF and DoS in Server Actions and Server Components)
+with no fix on that line.
 
 ## Getting started
 
@@ -27,17 +31,17 @@ the database yet.
 
 ## Scripts
 
-| Script                    | Purpose                                                  |
-| ------------------------- | -------------------------------------------------------- |
-| `npm run dev`             | Dev server                                                |
-| `npm run build`           | Production build                                          |
-| `npm run verify`          | format:check + lint + typecheck + build — run before commit |
-| `npm run format`          | Prettier write across the repo                            |
-| `npm run lint`            | ESLint (`next/core-web-vitals`)                           |
-| `npm run typecheck`       | `tsc --noEmit`                                            |
-| `npm run prisma:migrate`  | Create/apply a migration                                  |
-| `npm run prisma:studio`   | Browse the database                                       |
-| `npm run prisma:format`   | Format `schema.prisma`                                    |
+| Script                   | Purpose                                                     |
+| ------------------------ | ----------------------------------------------------------- |
+| `npm run dev`            | Dev server                                                  |
+| `npm run build`          | Production build                                            |
+| `npm run verify`         | format:check + lint + typecheck + build — run before commit |
+| `npm run format`         | Prettier write across the repo                              |
+| `npm run lint`           | ESLint 9 flat config (`eslint.config.mjs`)                  |
+| `npm run typecheck`      | `tsc --noEmit`                                              |
+| `npm run prisma:migrate` | Create/apply a migration                                    |
+| `npm run prisma:studio`  | Browse the database                                         |
+| `npm run prisma:format`  | Format `schema.prisma`                                      |
 
 ## Layout
 
