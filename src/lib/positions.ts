@@ -60,6 +60,9 @@ export interface PositionRow {
   dayChange: number | null;
   dayChangePercent: number | null;
   hasThesis: boolean;
+  /** Null when there is no thesis, or none of its assumptions could be checked. */
+  thesisScore: number | null;
+  thesisPreviousScore: number | null;
 }
 
 /**
@@ -81,7 +84,11 @@ export async function listPositions(userId: string): Promise<PositionRow[]> {
       quantity: true,
       avgBuyPrice: true,
       buyDate: true,
-      _count: { select: { theses: true } },
+      theses: {
+        select: { healthScore: true, previousHealthScore: true },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
     },
   });
 
@@ -137,7 +144,9 @@ export async function listPositions(userId: string): Promise<PositionRow[]> {
         lastPrice === null || previousClose === null || previousClose === 0
           ? null
           : ((lastPrice - previousClose) / previousClose) * 100,
-      hasThesis: r._count.theses > 0,
+      hasThesis: r.theses.length > 0,
+      thesisScore: r.theses[0]?.healthScore ?? null,
+      thesisPreviousScore: r.theses[0]?.previousHealthScore ?? null,
     };
   });
 }

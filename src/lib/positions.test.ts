@@ -33,6 +33,8 @@ function position(over: Partial<PositionRow> = {}): PositionRow {
         ? null
         : ((lastPrice - previousClose) / previousClose) * 100,
     hasThesis: false,
+    thesisScore: null,
+    thesisPreviousScore: null,
     ...over,
   };
 }

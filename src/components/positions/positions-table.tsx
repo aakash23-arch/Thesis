@@ -1,5 +1,7 @@
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { ThesisGauge } from '@/components/thesis/thesis-gauge';
 import {
   Table,
   TableBody,
@@ -49,7 +51,12 @@ export function PositionsTable({ positions }: { positions: PositionRow[] }) {
         {positions.map((p) => (
           <TableRow key={p.id}>
             <TableCell className="font-medium">
-              {p.ticker}
+              <Link
+                href={`/positions/${p.id}`}
+                className="focus-ring rounded underline-offset-4 hover:underline"
+              >
+                {p.ticker}
+              </Link>
               {p.company && (
                 <span className="ml-2 hidden text-caption normal-case tracking-normal text-ink-tertiary lg:inline">
                   {p.company}
@@ -87,9 +94,17 @@ export function PositionsTable({ positions }: { positions: PositionRow[] }) {
               </span>
             </TableCell>
             <TableCell>
-              {p.hasThesis ? (
-                <Badge variant="healthy" dot>
-                  Filed
+              {p.thesisScore !== null ? (
+                // The signature gauge, at table scale.
+                <ThesisGauge
+                  score={p.thesisScore}
+                  previousScore={p.thesisPreviousScore ?? undefined}
+                  size="mini"
+                  orientation="horizontal"
+                />
+              ) : p.hasThesis ? (
+                <Badge variant="default" dot>
+                  Not checked
                 </Badge>
               ) : (
                 <Badge variant="caution" dot>

@@ -219,10 +219,40 @@ model Stock {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  fundamentals StockFundamentals?
+
   // The same ticker can list on both exchanges, so identity is the pair.
   @@unique([ticker, exchange])
   @@index([company])
   @@map("stocks")
+}
+
+/// Company metrics that thesis assumptions are checked against. One row per
+/// stock, kept off `Stock` so a price refresh and a fundamentals refresh stay
+/// independent -- a failed fundamentals fetch must never blank a good price.
+///
+/// Every column is nullable: Yahoo does not report every metric for every
+/// company (BEL has no ROE). An assumption on a missing metric is reported as
+/// unevaluated, never as passing.
+model StockFundamentals {
+  id      String @id @default(cuid())
+  stockId String @unique @map("stock_id")
+
+  // Stored in the units the metric registry declares: percentages as
+  // percentages (24.9 means 24.9%), ratios as ratios.
+  trailingPe       Decimal? @map("trailing_pe") @db.Decimal(18, 4)
+  priceToBook      Decimal? @map("price_to_book") @db.Decimal(18, 4)
+  revenueGrowthYoy Decimal? @map("revenue_growth_yoy") @db.Decimal(18, 4)
+  profitMargin     Decimal? @map("profit_margin") @db.Decimal(18, 4)
+  returnOnEquity   Decimal? @map("return_on_equity") @db.Decimal(18, 4)
+  debtToEquity     Decimal? @map("debt_to_equity") @db.Decimal(18, 4)
+  dividendYield    Decimal? @map("dividend_yield") @db.Decimal(18, 4)
+
+  fetchedAt DateTime @map("fetched_at")
+
+  stock Stock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@map("stock_fundamentals")
 }
 
 model PortfolioSnapshot {
