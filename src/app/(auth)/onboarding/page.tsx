@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { OnboardingFlow } from './onboarding-flow';
+import { SessionSync } from './session-sync';
 
 export const metadata: Metadata = { title: 'Get started' };
 
@@ -25,7 +26,10 @@ export default async function OnboardingPage({
     select: { investsIn: true, tracksWith: true, onboardedAt: true },
   });
 
-  if (user?.onboardedAt) redirect('/');
+  // Already onboarded, yet the proxy let us through -- which means the token is
+  // stale. Redirecting to '/' here would just bounce back off the proxy, so
+  // refresh the session first. See SessionSync.
+  if (user?.onboardedAt) return <SessionSync />;
 
   return (
     <OnboardingFlow

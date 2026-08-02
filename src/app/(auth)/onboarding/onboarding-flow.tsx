@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { AlertTriangle, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -167,6 +168,7 @@ export interface OnboardingFlowProps {
 
 export function OnboardingFlow({ step, initialInvestsIn, initialTracksWith }: OnboardingFlowProps) {
   const router = useRouter();
+  const { update: refreshSession } = useSession();
   const [pending, startTransition] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
 
@@ -186,14 +188,26 @@ export function OnboardingFlow({ step, initialInvestsIn, initialTracksWith }: On
 
   const run = (
     action: () => Promise<{ ok: true } | { ok: false; error: string }>,
-    onOk: () => void,
+    onOk: () => void | Promise<void>,
   ) => {
     setError(null);
     startTransition(async () => {
       const result = await action();
-      if (result.ok) onOk();
+      if (result.ok) await onOk();
       else setError(result.error);
     });
+  };
+
+  /**
+   * Onboarding is finished in the database, but the JWT the proxy reads was
+   * minted before that and still says otherwise. Refresh it -- which re-runs
+   * the `jwt` callback and re-issues the cookie -- before navigating, or the
+   * proxy will bounce us straight back here.
+   */
+  const leaveOnboarding = async () => {
+    await refreshSession();
+    router.replace('/');
+    router.refresh();
   };
 
   if (step === 1) {
@@ -306,7 +320,7 @@ export function OnboardingFlow({ step, initialInvestsIn, initialTracksWith }: On
           avgBuyPrice,
           buyDate,
         }),
-      () => router.push('/'),
+      leaveOnboarding,
     );
   };
 
@@ -325,12 +339,7 @@ export function OnboardingFlow({ step, initialInvestsIn, initialTracksWith }: On
             <Button
               variant="ghost"
               disabled={pending}
-              onClick={() =>
-                run(
-                  () => submitFirstPosition(null),
-                  () => router.push('/'),
-                )
-              }
+              onClick={() => run(() => submitFirstPosition(null), leaveOnboarding)}
             >
               Skip for now
             </Button>
