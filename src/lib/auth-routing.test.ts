@@ -68,6 +68,16 @@ describe('paths middleware must never touch', () => {
     },
   );
 
+  // A fetch answered with a 307 to an HTML login page is useless to the caller.
+  // API routes authenticate themselves and return a real 401.
+  it.each(['/api/stocks/search', '/api/anything'])(
+    'leaves the API route %s to answer for itself',
+    (pathname) => {
+      expect(at(pathname, signedOut)).toBeNull();
+      expect(at(pathname, midOnboarding)).toBeNull();
+    },
+  );
+
   it.each(['/_next/static/chunk.js', '/favicon.ico', '/og-image.png', '/robots.txt'])(
     'ignores the asset %s',
     (pathname) => {

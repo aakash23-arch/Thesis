@@ -16,7 +16,9 @@
     "prisma:studio": "prisma studio",
     "prisma:format": "prisma format",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "prices:refresh": "tsx scripts/refresh-prices.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -61,6 +63,7 @@
     "prisma": "5.20.0",
     "tailwindcss": "^3.4.13",
     "tailwindcss-animate": "^1.0.7",
+    "tsx": "^4.23.1",
     "typescript": "^5.6.3",
     "vitest": "^4.1.10"
   },
@@ -68,5 +71,8 @@
   "overrides": {
     "postcss": "$postcss",
     "sharp": "^0.35.3"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

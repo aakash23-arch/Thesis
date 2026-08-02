@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { findStock, searchStocks, SEARCH_RESULT_LIMIT } from './search';
+import { rankStocks, SEARCH_RESULT_LIMIT } from './search';
+import { NIFTY_50 } from './nifty50';
+
+// `searchStocks` now queries Postgres; the ranking rules it delegates to stay
+// pure, so they are still tested here without a database.
+const searchStocks = async (q: string, limit?: number) => rankStocks([...NIFTY_50], q, limit);
 
 const tickers = async (query: string) => (await searchStocks(query)).map((s) => s.ticker);
 
-describe('searchStocks', () => {
+describe('rankStocks (the ordering behind searchStocks)', () => {
   it('returns nothing for an empty or whitespace query', async () => {
     expect(await searchStocks('')).toEqual([]);
     expect(await searchStocks('   ')).toEqual([]);
@@ -59,25 +64,5 @@ describe('searchStocks', () => {
       exchange: 'NSE',
       sector: 'IT Services',
     });
-  });
-});
-
-describe('findStock', () => {
-  it('resolves an exact ticker regardless of case', async () => {
-    expect(await findStock('infy')).toMatchObject({ ticker: 'INFY' });
-  });
-
-  it('returns null for an unknown ticker', async () => {
-    expect(await findStock('NOTREAL')).toBeNull();
-  });
-
-  it('honours the exchange filter', async () => {
-    expect(await findStock('INFY', 'NSE')).not.toBeNull();
-    expect(await findStock('INFY', 'BSE')).toBeNull();
-  });
-
-  it('does not match on a prefix', async () => {
-    // Guards against a future refactor loosening this into a search.
-    expect(await findStock('INF')).toBeNull();
   });
 });

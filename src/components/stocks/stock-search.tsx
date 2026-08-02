@@ -3,10 +3,21 @@
 import * as React from 'react';
 import { Loader2, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { searchStocks } from '@/lib/stocks/search';
+import { formatINR } from '@/lib/format';
 import type { StockSummary } from '@/lib/stocks/types';
 
 const DEBOUNCE_MS = 180;
+
+/**
+ * The search itself lives behind an API route, not an import: it queries
+ * Postgres and so cannot run in the browser.
+ */
+async function fetchMatches(query: string, signal: AbortSignal): Promise<StockSummary[]> {
+  const response = await fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`, { signal });
+  if (!response.ok) return [];
+  const body = (await response.json()) as { results?: StockSummary[] };
+  return body.results ?? [];
+}
 
 export interface StockSearchProps {
   onSelect: (stock: StockSummary) => void;
@@ -68,14 +79,25 @@ export function StockSearch({
     if (trimmed === '') return;
 
     const requestId = ++requestRef.current;
+    const controller = new AbortController();
+
     const timer = setTimeout(async () => {
-      const found = await searchStocks(trimmed);
-      if (requestRef.current !== requestId) return;
-      setSettled({ query: trimmed, items: found });
-      setActiveIndex(0);
+      try {
+        const found = await fetchMatches(trimmed, controller.signal);
+        if (requestRef.current !== requestId) return;
+        setSettled({ query: trimmed, items: found });
+        setActiveIndex(0);
+      } catch {
+        // Aborted or offline. Leave the previous results on screen rather than
+        // blanking the list under the user's cursor.
+        if (requestRef.current === requestId) setSettled({ query: trimmed, items: [] });
+      }
     }, DEBOUNCE_MS);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [trimmed]);
 
   // Close when focus or a click lands outside the whole widget.
@@ -213,8 +235,15 @@ export function StockSearch({
                 <span className="font-mono text-data-small text-ink-primary">{stock.ticker}</span>
                 <span className="truncate text-body text-ink-secondary">{stock.company}</span>
               </span>
-              <span className="shrink-0 text-caption uppercase tracking-[0.04em] text-ink-tertiary">
-                {stock.sector}
+              <span className="flex shrink-0 items-baseline gap-3">
+                <span className="hidden text-caption uppercase tracking-[0.04em] text-ink-tertiary sm:inline">
+                  {stock.sector}
+                </span>
+                {/* No price is shown as an em dash rather than a zero -- an
+                    absent number must not read as a real one. */}
+                <span className="w-20 text-right font-mono text-data-small tabular-nums text-ink-primary">
+                  {stock.lastPrice == null ? '—' : formatINR(stock.lastPrice)}
+                </span>
               </span>
             </li>
           ))}

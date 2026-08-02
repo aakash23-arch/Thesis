@@ -10,10 +10,14 @@ export const HOME_PATH = '/';
 export const PUBLIC_PATHS = [LOGIN_PATH, '/styleguide'] as const;
 
 /**
- * Paths middleware never touches: auth callbacks (which must be reachable while
- * signed out, and are what make you signed in), Next internals, and static files.
+ * Paths the route guard never touches.
+ *
+ * All of `/api` is excluded, not just the auth callbacks: an API route that
+ * answers a fetch with a 307 to an HTML login page is useless to the caller.
+ * Routes authenticate themselves and return a proper 401 instead -- see
+ * `src/app/api/stocks/search/route.ts`.
  */
-const IGNORED_PREFIXES = ['/api/auth', '/_next', '/static'] as const;
+const IGNORED_PREFIXES = ['/api', '/_next', '/static'] as const;
 
 export interface RouteState {
   pathname: string;

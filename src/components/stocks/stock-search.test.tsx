@@ -1,7 +1,23 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StockSearch } from './stock-search';
+import { rankStocks } from '@/lib/stocks/search';
+import { NIFTY_50 } from '@/lib/stocks/nifty50';
+
+// The component fetches from /api/stocks/search rather than importing the
+// query, since that query touches Postgres. Stand in for the route with the
+// same ranking the real endpoint applies, so these tests still exercise
+// realistic result sets.
+beforeEach(() => {
+  vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+    const q = new URL(String(input), 'http://localhost').searchParams.get('q') ?? '';
+    return {
+      ok: true,
+      json: async () => ({ results: rankStocks([...NIFTY_50], q) }),
+    } as Response;
+  });
+});
 
 function setup() {
   const onSelect = vi.fn();

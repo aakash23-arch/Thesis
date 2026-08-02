@@ -1,13 +1,12 @@
-import { NIFTY_50 } from './nifty50';
+import { db } from '@/lib/db';
 import type { StockSummary } from './types';
 
 export const SEARCH_RESULT_LIMIT = 8;
 
 /**
  * Rank buckets, best first. Someone typing "INF" almost certainly wants INFY,
- * so a ticker prefix has to outrank a company-name substring -- otherwise
- * "Infosys" and "Bharti Airtel" (which contains "irt"... ) compete on equal
- * footing and the obvious answer isn't first.
+ * so a ticker prefix has to outrank a company-name substring -- otherwise the
+ * obvious answer isn't first.
  */
 const enum Rank {
   ExactTicker = 0,
@@ -34,38 +33,87 @@ function rank(stock: StockSummary, query: string): Rank {
 }
 
 /**
- * THE SEAM. Every caller -- onboarding, the add-position flow, the portfolio
- * page -- goes through this function. Today it filters a static Nifty 50 list;
- * in Session 3 its body becomes a Postgres query against the seeded `stocks`
- * table and nothing above it changes.
- *
- * Async from the start for exactly that reason: callers already await it, so
- * swapping the source needs no change at the call sites.
+ * Orders and trims candidates. Kept pure and separate from the query so the
+ * ranking rules stay unit-testable without a database.
  */
-export async function searchStocks(
+export function rankStocks(
+  candidates: StockSummary[],
   query: string,
   limit: number = SEARCH_RESULT_LIMIT,
-): Promise<StockSummary[]> {
+): StockSummary[] {
   const normalized = query.trim().toLowerCase();
   if (normalized === '') return [];
 
-  return NIFTY_50.map((stock) => ({ stock, rank: rank(stock, normalized) }))
+  return candidates
+    .map((stock) => ({ stock, rank: rank(stock, normalized) }))
     .filter((entry) => entry.rank !== Rank.NoMatch)
     .sort((a, b) => a.rank - b.rank || a.stock.ticker.localeCompare(b.stock.ticker))
     .slice(0, limit)
     .map((entry) => entry.stock);
 }
 
-/** Exact lookup for validating a submitted ticker server-side. */
+/**
+ * THE SEAM, now backed by Postgres.
+ *
+ * The database does the coarse filtering (anything containing the query) and
+ * `rankStocks` does the ordering, because expressing "ticker prefix beats
+ * company substring" in SQL would be both uglier and untestable.
+ *
+ * Server-only: it touches Prisma. Client callers go through
+ * `/api/stocks/search`.
+ */
+export async function searchStocks(
+  query: string,
+  limit: number = SEARCH_RESULT_LIMIT,
+): Promise<StockSummary[]> {
+  const normalized = query.trim();
+  if (normalized === '') return [];
+
+  const rows = await db.stock.findMany({
+    where: {
+      OR: [
+        { ticker: { contains: normalized, mode: 'insensitive' } },
+        { company: { contains: normalized, mode: 'insensitive' } },
+      ],
+    },
+    select: { ticker: true, company: true, exchange: true, sector: true, lastPrice: true },
+    // Generous cap: rank across a wide candidate set, then trim to `limit`.
+    take: 50,
+  });
+
+  return rankStocks(
+    rows.map((r) => ({
+      ticker: r.ticker,
+      company: r.company,
+      exchange: r.exchange as 'NSE' | 'BSE',
+      sector: r.sector ?? '',
+      lastPrice: r.lastPrice === null ? null : Number(r.lastPrice),
+    })),
+    normalized,
+    limit,
+  );
+}
+
+/** Exact lookup, for validating a submitted ticker server-side. */
 export async function findStock(
   ticker: string,
   exchange?: StockSummary['exchange'],
 ): Promise<StockSummary | null> {
   const normalized = ticker.trim().toUpperCase();
-  return (
-    NIFTY_50.find(
-      (stock) =>
-        stock.ticker === normalized && (exchange === undefined || stock.exchange === exchange),
-    ) ?? null
-  );
+  if (normalized === '') return null;
+
+  const row = await db.stock.findFirst({
+    where: { ticker: normalized, ...(exchange ? { exchange } : {}) },
+    select: { ticker: true, company: true, exchange: true, sector: true, lastPrice: true },
+  });
+
+  if (!row) return null;
+
+  return {
+    ticker: row.ticker,
+    company: row.company,
+    exchange: row.exchange as 'NSE' | 'BSE',
+    sector: row.sector ?? '',
+    lastPrice: row.lastPrice === null ? null : Number(row.lastPrice),
+  };
 }

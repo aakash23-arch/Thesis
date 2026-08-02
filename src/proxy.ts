@@ -40,6 +40,6 @@ export const config = {
     // Everything except auth callbacks, Next internals and files with an
     // extension. resolveRedirect re-checks these, but keeping them out of the
     // matcher avoids running middleware on every static asset.
-    '/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.).*)',
   ],
 };

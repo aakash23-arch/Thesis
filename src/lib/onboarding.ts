@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { findStock } from '@/lib/stocks/search';
+import { positionInputSchema, type PositionInput } from '@/lib/positions';
 
 /**
  * Onboarding logic, kept as plain functions taking a userId.
@@ -13,29 +14,10 @@ import { findStock } from '@/lib/stocks/search';
 export const investsInSchema = z.enum(['STOCKS', 'MUTUAL_FUNDS', 'BOTH']);
 export const tracksWithSchema = z.enum(['SPREADSHEET', 'BROKER_APP', 'NOTHING', 'OTHER']);
 
-export const firstPositionSchema = z.object({
-  ticker: z.string().min(1, 'Choose a stock.'),
-  exchange: z.enum(['NSE', 'BSE']),
-  quantity: z.coerce.number().positive('Quantity must be more than zero.'),
-  avgBuyPrice: z.coerce.number().positive('Average price must be more than zero.'),
-  buyDate: z.coerce
-    .date()
-    .max(new Date(), 'Buy date cannot be in the future.')
-    .refine((d) => d.getFullYear() >= 1990, 'Buy date looks too far in the past.'),
-});
-
-/**
- * What actually crosses the wire from a form: strings. Declared explicitly
- * rather than via `z.input`, because Zod 3's `coerce` reports the *output* type
- * as its input, which would wrongly demand numbers and a Date here.
- */
-export interface FirstPositionInput {
-  ticker: string;
-  exchange: 'NSE' | 'BSE';
-  quantity: string | number;
-  avgBuyPrice: string | number;
-  buyDate: string | Date;
-}
+// The position shape is shared with the portfolio's add form, so onboarding and
+// the main app can never validate a holding differently.
+export const firstPositionSchema = positionInputSchema;
+export type FirstPositionInput = PositionInput;
 
 export async function saveInvestsIn(userId: string, value: unknown): Promise<void> {
   const investsIn = investsInSchema.parse(value);

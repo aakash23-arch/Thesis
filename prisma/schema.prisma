@@ -180,6 +180,12 @@ model Position {
   sector       String?
   createdAt    DateTime  @default(now()) @map("created_at")
 
+  // Archiving, not deletion. A closed position leaves the portfolio but keeps
+  // its thesis and decision history -- those are the record of how someone
+  // actually thought, and DQS Track B scores them later. Nothing here cascades
+  // away because a user tidied their list.
+  closedAt DateTime? @map("closed_at")
+
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   theses    Thesis[]
   exitRules ExitRule[]
@@ -188,7 +194,35 @@ model Position {
 
   @@index([userId])
   @@index([ticker])
+  @@index([userId, closedAt])
   @@map("positions")
+}
+
+// ============ Instruments ============
+
+/// The tradable universe: reference data plus the latest known price. Seeded
+/// with the Nifty 50 and refreshed by `npm run prices:refresh`.
+model Stock {
+  id       String  @id @default(cuid())
+  ticker   String
+  exchange String
+  company  String
+  sector   String?
+
+  // Latest known price only -- no history table until something needs a chart.
+  // `priceUpdatedAt` is what lets the UI say "as of <date>" instead of
+  // implying the number is live.
+  lastPrice      Decimal?  @map("last_price") @db.Decimal(18, 4)
+  previousClose  Decimal?  @map("previous_close") @db.Decimal(18, 4)
+  priceUpdatedAt DateTime? @map("price_updated_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // The same ticker can list on both exchanges, so identity is the pair.
+  @@unique([ticker, exchange])
+  @@index([company])
+  @@map("stocks")
 }
 
 model PortfolioSnapshot {
